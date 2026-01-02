@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
 # Sample Python code for youtube.channels.list using API key
 
+import os
+from datetime import datetime, timezone
 import googleapiclient.discovery
 import pandas as pd
 import matplotlib.pyplot as plt
 import re
 
+from dotenv import load_dotenv
+
+load_dotenv()
 # Create an API client
-    
+
 api_service_name = "youtube"
 api_version = "v3"
-api_key = "AIzaSyAAinpoN5vrAqmofIhyF2q9NzunAZANoE4"
+api_key = os.environ.get("YOUTUBE_API_KEY")
 
 youtube = googleapiclient.discovery.build(
         api_service_name, api_version, developerKey=api_key)
@@ -30,7 +35,7 @@ def convert_to_seconds(time_str):
         raise ValueError("Invalid time format")
 
 
-def getVideoViewCount(video_id,df):
+def getVideoViewCount(video_id, df):
 
     request = youtube.videos().list(
         part="snippet,contentDetails,statistics",
@@ -39,14 +44,34 @@ def getVideoViewCount(video_id,df):
     response = request.execute()
 
     title = response["items"][0]["snippet"]["localized"]["title"]
-    views = response["items"][0]["statistics"]["viewCount"]
+    views = int(response["items"][0]["statistics"]["viewCount"])
     time = response["items"][0]["contentDetails"]["duration"]
+    published_at = response["items"][0]["snippet"]["publishedAt"]
 
-    #filter out shorts from the voideoList 
+    # Filter out shorts from the videoList
     sec = convert_to_seconds(time)
 
-    if(sec > 90):
-        df = pd.concat([df, pd.DataFrame({"Title": [title], "View Count": [int(views)]})], ignore_index=True)
+    if sec > 90:
+        # Calculate days since upload
+        publish_date = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+        now = datetime.now(timezone.utc)
+        days_old = (now - publish_date).days
+        if days_old < 1:
+            days_old = 1  # Avoid division issues for videos uploaded today
+
+        # Calculate virality score: views / (days ^ 0.8)
+        virality_score = round(views / (days_old ** 0.8), 2)
+
+        # Construct video link
+        video_link = f"https://youtube.com/watch?v={video_id}"
+
+        df = pd.concat([df, pd.DataFrame({
+            "Title": [title],
+            "View Count": [views],
+            "Days Old": [days_old],
+            "Virality Score": [virality_score],
+            "Video Link": [video_link]
+        })], ignore_index=True)
     return df
     
 
@@ -98,16 +123,20 @@ def main():
     
 if __name__ == "__main__":
     main()
-def start(name): 
+def start(name):
 
-    df = pd.DataFrame(columns=["Title","View Count"])
+    df = pd.DataFrame(columns=["Title", "View Count", "Days Old", "Virality Score", "Video Link"])
 
     channelid = getChannelId(name)
     playlistid = getPlaylistId(channelid)
-    df = getVideoId(playlistid,df)
+    df = getVideoId(playlistid, df)
 
-    df = df.sort_values(by='View Count',ascending=False,inplace=False)
-    #print(df)
+    # Normalize virality score to 0-100 scale
+    max_score = df["Virality Score"].max()
+    if max_score > 0:
+        df["Virality Score"] = round((df["Virality Score"] / max_score) * 100, 2)
+
+    df = df.sort_values(by='Virality Score', ascending=False, inplace=False)
     return df
 
 

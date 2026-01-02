@@ -1,0 +1,6 @@
+pandas
+streamlit
+openai
+google-api-python-client
+matplotlib
+python-dotenv

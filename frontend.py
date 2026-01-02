@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # Must run BEFORE importing test.py
+
 import streamlit as st
 import test
 import script
@@ -20,6 +23,6 @@ for name in list:
             if i == 1:
                 str += t
 
-        script = script.callAPI(str)
+    #     script = script.callAPI(str)
 
-    st.write(script)
+    # st.write(script)
