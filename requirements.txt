@@ -4,3 +4,11 @@ openai
 google-api-python-client
 matplotlib
 python-dotenv
+youtube-transcript-api
+openai-agents
+litellm
+pydantic
+elevenlabs
+moviepy
+yt-dlp
+numpy
