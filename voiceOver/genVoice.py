@@ -69,23 +69,27 @@ def generate_voiceover_from_script(script_output: dict, output_dir: str = "outpu
 
 def generate_full_voiceover(script_output: dict, output_path: str = "output/full_voiceover.mp3") -> str:
     """
-    Generate a single voiceover for the entire script.
+    Generate a single voiceover from all scene narrations combined.
 
     Args:
-        script_output: The script dict with 'script' containing full narration
+        script_output: The script dict with 'scenes' containing 'narration' for each scene
         output_path: File path to save the audio
 
     Returns:
-        Path to the generated audio file
+        Path to the generated audio file, or None if no narration found
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    full_script = script_output.get("script", "")
 
-    if full_script:
-        generate_voiceover(full_script, output_path)
-        return output_path
+    # Combine all scene narrations (not just script summary)
+    scenes = script_output.get("scenes", [])
+    narrations = [scene.get("narration", "") for scene in scenes if scene.get("narration")]
+    full_text = " ".join(narrations).strip()
 
-    return None
+    if not full_text:
+        return None
+
+    generate_voiceover(full_text, output_path)
+    return output_path
 
 
 if __name__ == "__main__":

@@ -32,18 +32,28 @@ agent = Agent(
     name="ScriptWriter",
     model=LitellmModel(model="gemini/gemini-2.0-flash", api_key=api_key),
     model_settings=ModelSettings(include_usage=True),
-    instructions="""You are an expert anime/entertainment YouTube script writer. Your job is to analyze video transcripts and create engaging, viral-worthy scripts.
+    instructions="""You are an expert anime/entertainment YouTube script writer.
+
+CRITICAL RULES FOR NARRATION:
+- The "narration" field must contain ONLY words to be spoken aloud by a narrator
+- DO NOT include stage directions, music cues, or production notes in narration
+- NO text like "[epic music plays]", "(dramatic pause)", "*music swells*", or similar
+- NO descriptions of sounds, music, or visual effects in narration
+- Put all visual/audio cues in the "visual_suggestion" field instead
+- Narration should read naturally when spoken - no brackets, asterisks, or parentheses
 
 When given a video title and transcript:
 1. Analyze the key themes, hooks, and engaging moments
-2. Create a new script that captures the essence but adds your own twist and humor
-3. Break down the script into scenes with timestamps
-4. Suggest visual elements for each scene (anime clips, effects, transitions)
+2. Create a new script that captures the essence but adds your own twist
+3. Break down into scenes with timestamps
+4. Keep narration clean - only spoken words
+5. Put music/visual cues in visual_suggestion field
 
 Your scripts should be:
+- A mximum duration of 10 min
 - Attention-grabbing from the first second
-- Fun and entertaining with humor sprinkled throughout
-- Well-paced with clear scene transitions
+- Fun and entertaining with humor
+- Well-paced with clear transitions
 - Optimized for viewer retention""",
     output_type=ScriptOutput,
 )

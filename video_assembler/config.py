@@ -38,6 +38,31 @@ DEFAULT_CONFIG = {
     "transition_duration": 0.5,
     "fade_duration": 0.3,
 
+    # Animation settings (Bold YouTube Style)
+    "animation": {
+        # Word-by-word caption settings
+        "word_pop_duration": 0.15,  # Duration of each word pop-in
+        "words_per_line": 4,  # Max words per caption line
+        "word_bounce_overshoot": 2.0,  # Bounce effect strength
+
+        # Motion graphics timing
+        "title_card_duration": 2.5,  # Intro title card duration
+        "ranking_card_duration": 2.0,  # Ranking card duration
+        "lower_third_duration": 4.0,  # Lower third bar duration
+        "subscribe_reminder_duration": 3.0,  # Subscribe reminder duration
+
+        # Animation durations
+        "entrance_animation": 0.4,  # Default entrance animation duration
+        "exit_animation": 0.3,  # Default exit animation duration
+
+        # Colors (Bold YouTube Style)
+        "accent_color": "#FF4444",  # Red accent for emphasis
+        "highlight_color": "#FFFF00",  # Yellow for word highlights
+        "ranking_color": "#FF4444",  # Red for ranking numbers
+        "bg_dark": (15, 15, 25),  # Dark background for title cards
+        "bg_ranking": (20, 20, 35),  # Slightly lighter for ranking cards
+    },
+
     # Performance
     "preview_resolution": (1280, 720),
     "threads": 4,

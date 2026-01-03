@@ -14,7 +14,9 @@ from moviepy import (
 from .config import DEFAULT_CONFIG, ensure_directories
 from .asset_manager import AssetManager
 from .motion_graphics import MotionGraphics
+from .text_animations import TextAnimations
 from .scene_composer import SceneComposer
+from .scene_director import SceneDirector
 from .effects import Effects
 from .models import Scene, ScriptData
 
@@ -24,22 +26,37 @@ class VideoAssembler:
     Main video assembler that orchestrates the full video generation pipeline.
 
     Takes a script and voiceover as input and produces a complete video.
+    Features animated captions, motion graphics, and smart scene direction.
     """
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(
+        self,
+        config: Optional[dict] = None,
+        use_ai_director: bool = False,
+        use_animated_graphics: bool = True,
+    ):
         """
         Initialize the video assembler.
 
         Args:
             config: Optional configuration overrides
+            use_ai_director: Whether to use AI for scene analysis (requires API)
+            use_animated_graphics: Whether to use animated motion graphics
         """
         self.config = {**DEFAULT_CONFIG, **(config or {})}
         self.resolution = self.config["resolution"]
+        self.use_ai_director = use_ai_director
+        self.use_animated_graphics = use_animated_graphics
 
         # Initialize components
         self.asset_manager = AssetManager(self.config["clips_dir"])
         self.motion_graphics = MotionGraphics(self.resolution)
-        self.scene_composer = SceneComposer(self.resolution)
+        self.text_animations = TextAnimations(self.resolution)
+        self.scene_composer = SceneComposer(
+            self.resolution,
+            use_ai_director=use_ai_director,
+        )
+        self.scene_director = SceneDirector(use_ai=use_ai_director)
         self.effects = Effects()
 
         # Ensure directories exist
@@ -81,15 +98,18 @@ class VideoAssembler:
         # Calculate duration per scene
         scene_duration = total_duration / len(scenes)
 
-        # Generate each scene
+        # Generate each scene with animated graphics
         composed_scenes = []
+        total_scenes = len(scenes)
         for i, scene in enumerate(scenes):
-            print(f"Processing scene {i + 1}/{len(scenes)}...")
+            print(f"Processing scene {i + 1}/{total_scenes}...")
+            print(f"  Narration: {scene.get('narration', '')[:50]}...")
 
             scene_clip = self._generate_scene(
                 scene=scene,
                 scene_index=i,
                 duration=scene_duration,
+                total_scenes=total_scenes,
             )
             composed_scenes.append(scene_clip)
 
@@ -135,14 +155,16 @@ class VideoAssembler:
         scene: dict,
         scene_index: int,
         duration: float,
+        total_scenes: int = 1,
     ):
         """
-        Generate a single scene.
+        Generate a single scene with animated graphics.
 
         Args:
             scene: Scene data dict
             scene_index: Index of the scene
             duration: Target duration for the scene
+            total_scenes: Total number of scenes
 
         Returns:
             Composed scene clip
@@ -154,6 +176,14 @@ class VideoAssembler:
         scene_type = self._detect_scene_type(narration, visual_suggestion)
         search_query = self._generate_search_query(visual_suggestion, narration)
 
+        # Get animation directives for this scene
+        directive = self.scene_director.analyze_scene(
+            narration=narration,
+            visual_suggestion=visual_suggestion,
+            scene_index=scene_index,
+            total_scenes=total_scenes,
+        )
+
         try:
             # Download clip based on visual suggestion
             clip_path = self.asset_manager.download_clip(
@@ -161,21 +191,43 @@ class VideoAssembler:
                 duration=int(duration) + 5,  # Download extra to have buffer
             )
 
-            # Compose scene with video and caption
-            composed = self.scene_composer.compose_scene(
-                video_path=clip_path,
-                narration_text=narration,
-                duration=duration,
-            )
+            if self.use_animated_graphics:
+                # Use enhanced scene composition with motion graphics
+                composed = self.scene_composer.compose_scene_with_graphics(
+                    video_path=clip_path,
+                    narration_text=narration,
+                    scene_data=scene,
+                    scene_index=scene_index,
+                    total_scenes=total_scenes,
+                    duration=duration,
+                )
+            else:
+                # Use basic scene composition with animated captions
+                composed = self.scene_composer.compose_scene(
+                    video_path=clip_path,
+                    narration_text=narration,
+                    duration=duration,
+                    scene_data=scene,
+                    scene_index=scene_index,
+                    total_scenes=total_scenes,
+                    use_animated_captions=True,
+                )
 
         except Exception as e:
             print(f"Error getting clip for scene {scene_index}: {e}")
-            # Fallback to title card if clip download fails
-            composed = self.motion_graphics.create_title_card(
-                title=narration[:50] + "..." if len(narration) > 50 else narration,
-                subtitle="",
-                duration=duration,
-            )
+            # Fallback to animated title card if clip download fails
+            if self.use_animated_graphics:
+                composed = self.motion_graphics.create_animated_title_card(
+                    title=narration[:50] + "..." if len(narration) > 50 else narration,
+                    subtitle="",
+                    duration=duration,
+                )
+            else:
+                composed = self.motion_graphics.create_title_card(
+                    title=narration[:50] + "..." if len(narration) > 50 else narration,
+                    subtitle="",
+                    duration=duration,
+                )
 
         return composed
 
@@ -269,19 +321,26 @@ def generate_video(
     script_data: dict,
     voiceover_path: str,
     output_path: str = "output/final_video.mp4",
+    use_ai_director: bool = False,
+    use_animated_graphics: bool = True,
 ) -> str:
     """
-    Convenience function to generate a video.
+    Convenience function to generate a video with animated graphics.
 
     Args:
         script_data: Script JSON with scenes
         voiceover_path: Path to voiceover audio
         output_path: Output video path
+        use_ai_director: Whether to use AI for scene analysis
+        use_animated_graphics: Whether to use animated motion graphics
 
     Returns:
         Path to generated video
     """
-    assembler = VideoAssembler()
+    assembler = VideoAssembler(
+        use_ai_director=use_ai_director,
+        use_animated_graphics=use_animated_graphics,
+    )
     return assembler.generate_video(script_data, voiceover_path, output_path)
 
 
