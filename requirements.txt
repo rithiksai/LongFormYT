@@ -1,14 +1,27 @@
-pandas
-streamlit
-openai
-google-api-python-client
-matplotlib
+# Core
 python-dotenv
+pydantic
+numpy
+
+# Web UI
+streamlit
+pandas
+
+# YouTube API & Research
+google-api-python-client
 youtube-transcript-api
+yt-dlp
+
+# AI/LLM
+openai
 openai-agents
 litellm
-pydantic
+
+# Text-to-Speech
 elevenlabs
+
+# Video Processing
 moviepy
-yt-dlp
-numpy
+
+# Visualization (optional)
+matplotlib
