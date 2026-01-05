@@ -19,13 +19,24 @@ __pycache__/
 .idea/
 *.swp
 *.swo
+.claude/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Streamlit
-.streamlit/
+# Generated content - DO NOT COMMIT
+output/
+assets/videos/
+*.mp4
+*.mp3
+*.wav
+
+# Cache
+video_assembler/cache/
+
+# CSV exports
+*.csv
 
 # Jupyter
 .ipynb_checkpoints/

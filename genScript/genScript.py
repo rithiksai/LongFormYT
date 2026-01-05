@@ -50,7 +50,7 @@ When given a video title and transcript:
 5. Put music/visual cues in visual_suggestion field
 
 Your scripts should be:
-- A mximum duration of 10 min
+- A mximum duration of 1 min
 - Attention-grabbing from the first second
 - Fun and entertaining with humor
 - Well-paced with clear transitions

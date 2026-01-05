@@ -1,19 +1,13 @@
 # Core
 python-dotenv
 pydantic
-numpy
-
-# Web UI
-streamlit
-pandas
 
 # YouTube API & Research
 google-api-python-client
 youtube-transcript-api
-yt-dlp
+pandas
 
-# AI/LLM
-openai
+# AI/LLM (Script Generation)
 openai-agents
 litellm
 
@@ -22,6 +16,3 @@ elevenlabs
 
 # Video Processing
 moviepy
-
-# Visualization (optional)
-matplotlib

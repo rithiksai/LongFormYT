@@ -1,66 +1,32 @@
-# AI YouTube Video Generator
+# YouTube Video Generator
 
-An end-to-end automated video generation system that researches viral YouTube content, generates scripts, creates voiceovers, and assembles complete videos with anime clips and motion graphics.
+Automated pipeline that generates YouTube videos from viral content research.
 
-## Overview
-
-This tool automates the entire YouTube video creation pipeline:
-1. **Research** - Find viral videos from YouTube channels
-2. **Analyze** - Calculate virality scores to identify trending content
-3. **Script** - Generate engaging scripts using AI
-4. **Voiceover** - Create professional narration with text-to-speech
-5. **Assemble** - Combine clips, graphics, and audio into final video
-
-## Features
-
-- **Viral Video Research**: Analyze YouTube channels to find top-performing videos
-- **Virality Algorithm**: Score videos based on views/days with weighted decay
-- **Transcript Extraction**: Pull transcripts from YouTube videos for analysis
-- **AI Script Generation**: Generate scripts using Gemini AI with structured output
-- **Text-to-Speech**: Create voiceovers with ElevenLabs
-- **Video Assembly**: Automatically download clips, add motion graphics, and render final video
-
-## Project Structure
+## Pipeline
 
 ```
-LongFormYT/
-├── frontend.py              # Streamlit web interface
-├── test.py                  # YouTube Data API - viral video research
-├── test_pipeline.py         # Test script for full pipeline
-├── genScript/
-│   └── genScript.py         # AI script generation (Gemini)
-├── voiceOver/
-│   └── genVoice.py          # ElevenLabs text-to-speech
-├── video_content/
-│   └── getContent.py        # YouTube transcript extraction
-├── video_assembler/
-│   ├── __init__.py
-│   ├── asset_manager.py     # YouTube clip downloader (yt-dlp)
-│   ├── motion_graphics.py   # Text overlays, title cards
-│   ├── scene_composer.py    # Scene composition
-│   ├── effects.py           # Video effects and transitions
-│   ├── video_assembler.py   # Main video generation orchestrator
-│   ├── models.py            # Pydantic data models
-│   └── config.py            # Configuration settings
-└── output/                  # Generated videos
+Channel Research → Video Selection → Transcript → Script → Voiceover → Video
 ```
+
+1. **Research** - Find viral videos from a YouTube channel
+2. **Select** - Pick a video based on virality score
+3. **Transcript** - Fetch the video's transcript
+4. **Script** - AI generates a new script from the content
+5. **Voiceover** - Text-to-speech generates narration
+6. **Video** - Combines background clips with voiceover
 
 ## Setup
 
-### 1. Clone and create virtual environment
-```bash
-git clone <repo-url>
-cd LongFormYT
-python -m venv venv
-source venv/bin/activate  # macOS/Linux
-```
+### 1. Install dependencies
 
-### 2. Install dependencies
 ```bash
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Install system dependencies
+### 2. Install FFmpeg
+
 ```bash
 # macOS
 brew install ffmpeg
@@ -69,91 +35,80 @@ brew install ffmpeg
 sudo apt install ffmpeg
 ```
 
-### 4. Set up environment variables
+### 3. Configure API keys
 
-Create a `.env` file:
+Copy `.env.example` to `.env` and add your keys:
+
 ```env
-YOUTUBE_API_KEY=your_youtube_api_key
+YOUTUBE_API_KEY=your_youtube_data_api_key
 GEMINI_API_KEY=your_gemini_api_key
 ELEVEN_LABS_API=your_elevenlabs_api_key
-OPENAI_API_KEY=your_openai_api_key  # For tracing (free)
 ```
+
+### 4. Add background videos
+
+Place MP4 video files in `assets/videos/` folder. These are used as background clips in the generated video.
 
 ## Usage
 
-### Research Viral Videos (Streamlit UI)
+### Full Pipeline
+
 ```bash
-streamlit run frontend.py
+python run_pipeline.py
 ```
 
-### Generate a Complete Video
-```python
-from genScript.genScript import generate_script
-from voiceOver.genVoice import generate_full_voiceover
-from video_assembler import VideoAssembler
+Options:
+- `--channel "Channel Name"` - Skip channel input prompt
+- `--auto-select 1` - Auto-select video by rank (1-10)
+- `--output-dir path/` - Custom output directory
 
-# 1. Generate script
-script = generate_script(
-    title="Top 10 Anime Moments",
-    transcript="Your reference content here..."
-)
+### Test Video Generation
 
-# 2. Generate voiceover
-voiceover_path = generate_full_voiceover(script, "output/voiceover.mp3")
+To test video assembly without using API credits:
 
-# 3. Assemble video
-assembler = VideoAssembler()
-video_path = assembler.generate_video(
-    script_data=script,
-    voiceover_path=voiceover_path,
-    output_path="output/final_video.mp4"
-)
-```
-
-### Test the Pipeline
 ```bash
-# Test motion graphics (no API needed)
-python test_pipeline.py --graphics
-
-# Test clip downloading
-python test_pipeline.py --download
-
-# Test full video assembly (needs voiceover file)
-python test_pipeline.py
-
-# Test complete pipeline (needs all API keys)
-python test_pipeline.py --full
+python test_video.py
 ```
 
-## API Keys Required
+Edit paths in `test_video.py` to use your existing script/voiceover files.
+
+## Project Structure
+
+```
+LongFormYT/
+├── run_pipeline.py      # Main pipeline script
+├── test_video.py        # Test video generation
+├── test.py              # YouTube channel research
+├── video_content/       # Transcript fetching
+│   └── getContent.py
+├── genScript/           # AI script generation
+│   └── genScript.py
+├── voiceOver/           # ElevenLabs TTS
+│   └── genVoice.py
+├── video_assembler/     # Video composition
+│   ├── video_assembler.py
+│   ├── asset_manager.py
+│   └── config.py
+├── assets/videos/       # Background video clips (add your own)
+└── output/              # Generated files
+    ├── scripts/
+    ├── voiceovers/
+    └── videos/
+```
+
+## API Keys
 
 | Service | Purpose | Get Key |
 |---------|---------|---------|
-| YouTube Data API v3 | Research viral videos | [Google Cloud Console](https://console.cloud.google.com/) |
-| Gemini | AI script generation | [Google AI Studio](https://makersuite.google.com/) |
-| ElevenLabs | Text-to-speech voiceover | [ElevenLabs](https://elevenlabs.io/) |
-| OpenAI | Tracing (free) | [OpenAI Platform](https://platform.openai.com/) |
+| YouTube Data API | Research viral videos | [Google Cloud Console](https://console.cloud.google.com/) |
+| Gemini | AI script generation | [Google AI Studio](https://aistudio.google.com/) |
+| ElevenLabs | Text-to-speech | [ElevenLabs](https://elevenlabs.io/) |
 
-## Output Format
+## Output
 
-The video assembler generates:
 - **Resolution**: 1920x1080 (1080p)
 - **FPS**: 30
-- **Codec**: H.264 (libx264)
+- **Codec**: H.264
 - **Audio**: AAC
 
-## Script Output Format
-
-```json
-{
-  "script": "Full narration text...",
-  "duration_estimate": 300,
-  "scenes": [
-    {
-      "timestamp": "0:00",
-      "narration": "Scene narration...",
-      "visual_suggestion": "Anime action scene"
-    }
-  ]
-}
-```
+Created with ❤️ by [Rithik Sai Motupalli](https://github.com/rithiksai)
