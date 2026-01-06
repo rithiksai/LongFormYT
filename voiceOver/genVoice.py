@@ -9,7 +9,7 @@ api_key = os.environ.get("ELEVEN_LABS_API")
 client = ElevenLabs(api_key=api_key)
 
 # Default voice settings
-DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"
+DEFAULT_VOICE_ID = "zYcjlYFOd3taleS0gkk3"
 DEFAULT_MODEL = "eleven_multilingual_v2"
 
 

@@ -12,6 +12,7 @@ if openai_api_key:
     set_tracing_export_api_key(openai_api_key)
 
 api_key = os.environ["GEMINI_API_KEY"]
+claude_api_key = os.environ["CLAUDE_API_KEY"]
 
 
 # Pydantic models for structured output
@@ -30,37 +31,56 @@ class ScriptOutput(BaseModel):
 # Agent with instructions for anime/entertainment script generation
 agent = Agent(
     name="ScriptWriter",
-    model=LitellmModel(model="gemini/gemini-2.0-flash", api_key=api_key),
+    model=LitellmModel(model="anthropic/claude-sonnet-4-5", api_key=claude_api_key),
     model_settings=ModelSettings(include_usage=True),
     instructions="""You are an expert anime/entertainment YouTube script writer.
 
-CRITICAL RULES FOR NARRATION:
-- The "narration" field must contain ONLY words to be spoken aloud by a narrator
-- DO NOT include stage directions, music cues, or production notes in narration
-- NO text like "[epic music plays]", "(dramatic pause)", "*music swells*", or similar
-- NO descriptions of sounds, music, or visual effects in narration
-- Put all visual/audio cues in the "visual_suggestion" field instead
-- Narration should read naturally when spoken - no brackets, asterisks, or parentheses
+CRITICAL: You MUST output valid JSON with ALL THREE fields. Generate the "scenes" array FIRST as it is the most important.
 
-When given a video title and transcript:
-1. Analyze the key themes, hooks, and engaging moments
-2. Create a new script that captures the essence but adds your own twist
-3. Break down into scenes with timestamps
-4. Keep narration clean - only spoken words
-5. Put music/visual cues in visual_suggestion field
+OUTPUT FORMAT (all fields required):
+{
+  "script": "Brief 2-3 sentence summary of the video concept",
+  "duration_estimate": 300,
+  "scenes": [
+    {
+      "timestamp": "0:00",
+      "narration": "The actual words to speak for this scene",
+      "visual_suggestion": "Visual/audio cues"
+    }
+  ]
+}
 
-Your scripts should be:
-- A mximum duration of 1 min
-- Attention-grabbing from the first second
-- Fun and entertaining with humor
-- Well-paced with clear transitions
-- Optimized for viewer retention""",
+IMPORTANT RULES:
+1. "script" field: Keep it SHORT (2-3 sentences max). Just a brief summary.
+2. "duration_estimate": Integer in seconds (aim for 180-300 seconds)
+3. "scenes": Array of 8-12 scene objects. THIS IS THE MOST IMPORTANT PART.
+
+SCENE RULES:
+- Each scene needs: timestamp, narration, visual_suggestion
+- "narration": ONLY spoken words. NO stage directions, NO [brackets], NO *asterisks*
+- "visual_suggestion": Put all music/visual cues here
+- Keep each narration 2-4 sentences
+
+Create engaging, fun content with:
+- Attention-grabbing hook in first scene
+- Good pacing and transitions
+- Entertaining narration style""",
     output_type=ScriptOutput,
 )
 
 
 def generate_script(title: str, transcript: str) -> dict:
     """Generate a structured video script from a title and transcript."""
+    # Debug: Log transcript info
+    print(f"  [DEBUG] Title: {title[:50]}...")
+    print(f"  [DEBUG] Transcript length: {len(transcript)} chars, ~{len(transcript.split())} words")
+
+    # Truncate transcript if too long (keep first 10000 chars)
+    max_chars = 10000
+    if len(transcript) > max_chars:
+        print(f"  [DEBUG] Truncating transcript from {len(transcript)} to {max_chars} chars")
+        transcript = transcript[:max_chars] + "..."
+
     prompt = f"""Create an engaging YouTube video script based on this content:
 
 **Video Title:** {title}

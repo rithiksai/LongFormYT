@@ -82,6 +82,90 @@ class AssetManager:
         """List all available video filenames."""
         return [v.name for v in self.get_available_videos()]
 
+    def get_source_video(self) -> str:
+        """
+        Get the single source video file from assets.
+
+        Returns:
+            Path to the source video file
+
+        Raises:
+            FileNotFoundError: If no video is found
+        """
+        available = self.get_available_videos()
+        if not available:
+            raise FileNotFoundError(
+                f"No video found in {self.assets_dir}. "
+                f"Please add a video file ({', '.join(self.VIDEO_EXTENSIONS)}) to this folder."
+            )
+        return str(available[0])
+
+    def get_random_segments(
+        self,
+        video_duration: float,
+        num_segments: int,
+        segment_duration: float
+    ) -> List[tuple]:
+        """
+        Generate random non-overlapping segments from a video.
+
+        Divides the video into equal chunks and picks a random start
+        position within each chunk, ensuring segments don't overlap.
+        The segments are then shuffled to avoid following the source timeline.
+
+        Args:
+            video_duration: Total duration of source video (seconds)
+            num_segments: Number of segments needed
+            segment_duration: Duration of each segment (seconds)
+
+        Returns:
+            List of (start_time, end_time) tuples
+
+        Raises:
+            ValueError: If total needed duration exceeds video duration
+        """
+        total_needed = num_segments * segment_duration
+        if total_needed > video_duration:
+            raise ValueError(
+                f"Need {total_needed:.1f}s of footage but video is only {video_duration:.1f}s. "
+                f"Reduce number of scenes or use a longer source video."
+            )
+
+        # Divide video into equal chunks, pick random start within each chunk
+        chunk_size = video_duration / num_segments
+        segments = []
+
+        for i in range(num_segments):
+            chunk_start = i * chunk_size
+            chunk_end = chunk_start + chunk_size - segment_duration
+
+            if chunk_end > chunk_start:
+                start = random.uniform(chunk_start, chunk_end)
+            else:
+                start = chunk_start
+
+            segments.append((start, start + segment_duration))
+
+        # Shuffle to randomize the order of segments in final video
+        random.shuffle(segments)
+        return segments
+
+    def get_random_clip_from_video(self, video_path: str, video_duration: float, clip_duration: float) -> tuple:
+        """
+        Get a random clip position from a specific video.
+
+        Args:
+            video_path: Path to the video file
+            video_duration: Duration of the video in seconds
+            clip_duration: Desired clip duration in seconds
+
+        Returns:
+            Tuple of (start_time, end_time)
+        """
+        max_start = max(0, video_duration - clip_duration)
+        start = random.uniform(0, max_start)
+        return (start, start + clip_duration)
+
 
 if __name__ == "__main__":
     # Test the asset manager

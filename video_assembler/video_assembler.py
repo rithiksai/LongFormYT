@@ -69,33 +69,48 @@ class VideoAssembler:
         scene_duration = total_duration / len(scenes)
         total_scenes = len(scenes)
 
-        # Get unique videos for variety
-        print(f"\nProcessing {total_scenes} scenes...")
-        video_clips = []
+        # Load all available source videos
+        print(f"\nLoading source videos...")
+        available_videos = self.asset_manager.get_available_videos()
+        if not available_videos:
+            raise FileNotFoundError("No videos found in assets folder")
 
-        for i, scene in enumerate(scenes):
-            print(f"  Scene {i + 1}/{total_scenes}")
+        # Load all video clips and get their durations
+        source_clips = {}
+        for video_path in available_videos:
+            clip = VideoFileClip(str(video_path))
+            source_clips[str(video_path)] = clip
+            print(f"  Loaded: {video_path.name} ({clip.duration:.1f}s)")
+
+        # Fast cuts: 4-5 second clips instead of scene-based duration
+        import random
+        clip_duration = random.uniform(4, 5)  # Random between 4-5 seconds
+        num_clips = int(total_duration / clip_duration) + 1
+
+        print(f"\nCreating {num_clips} fast cuts ({clip_duration:.1f}s each)...")
+        video_clips = []
+        video_paths = list(source_clips.keys())
+
+        for i in range(num_clips):
+            # Randomly select which video to use
+            selected_video_path = random.choice(video_paths)
+            selected_clip = source_clips[selected_video_path]
+
+            # Random clip duration between 4-5 seconds for variety
+            this_clip_duration = random.uniform(4, 5)
+
+            # Get random segment from this video
+            start, end = self.asset_manager.get_random_clip_from_video(
+                selected_video_path,
+                selected_clip.duration,
+                this_clip_duration
+            )
+
+            print(f"  Clip {i + 1}/{num_clips}: {Path(selected_video_path).name} [{start:.1f}s - {end:.1f}s]")
 
             try:
-                # Get a random video
-                video_path = self.asset_manager.get_random_video()
-
-                # Load and prepare clip
-                clip = VideoFileClip(video_path)
-
-                # Get a segment from the video
-                if clip.duration > scene_duration:
-                    # Use different segments for variety
-                    max_start = clip.duration - scene_duration
-                    start_time = (i * scene_duration) % max_start if max_start > 0 else 0
-                    clip = clip.subclipped(start_time, start_time + scene_duration)
-                else:
-                    # Loop if video is too short
-                    clip = clip.with_duration(scene_duration)
-
-                # Resize to target resolution
+                clip = selected_clip.subclipped(start, end)
                 clip = clip.resized(self.resolution)
-
                 video_clips.append(clip)
 
             except Exception as e:
@@ -105,7 +120,7 @@ class VideoAssembler:
                 fallback = ColorClip(
                     size=self.resolution,
                     color=(0, 0, 0),
-                    duration=scene_duration,
+                    duration=this_clip_duration,
                 )
                 video_clips.append(fallback)
 
@@ -138,6 +153,8 @@ class VideoAssembler:
         # Cleanup
         final_video.close()
         voiceover.close()
+        for source_clip in source_clips.values():
+            source_clip.close()
         for clip in video_clips:
             clip.close()
 
