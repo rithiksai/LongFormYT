@@ -1,0 +1,13 @@
+# Core
+python-dotenv
+pydantic
+
+# AI/LLM (Script Generation)
+openai-agents
+litellm
+
+# Text-to-Speech
+elevenlabs
+
+# Video Processing
+moviepy
