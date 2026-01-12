@@ -2,6 +2,10 @@
 python-dotenv
 pydantic
 
+# YouTube API & Research
+google-api-python-client
+pandas
+
 # AI/LLM (Script Generation)
 openai-agents
 litellm

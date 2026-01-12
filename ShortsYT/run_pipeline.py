@@ -5,8 +5,8 @@ YouTube Shorts Generation Pipeline
 Generate a ~30 second vertical video from just a title.
 
 Usage:
-    python run_pipeline.py --title "Your Short Title"
-    python run_pipeline.py --title "Why Goku beats Naruto"
+    python run_pipeline.py                              # Interactive mode
+    python run_pipeline.py --title "Your Short Title"   # Direct title mode
 """
 
 import os
@@ -17,6 +17,7 @@ from datetime import datetime
 from gen_script import generate_script
 from gen_voice import generate_voiceover
 from video_assembler import assemble_video, get_available_videos, ASSETS_DIR
+from research_shorts import research_channel, display_shorts, select_short
 
 
 def slugify(text: str) -> str:
@@ -106,6 +107,53 @@ def run_pipeline(title: str, output_dir: str = "output") -> str:
     return video_path
 
 
+def get_title_interactive():
+    """Get title through interactive menu."""
+    print("\n" + "=" * 50)
+    print("  YOUTUBE SHORTS GENERATOR")
+    print("=" * 50)
+    print("\nHow would you like to provide the title?")
+    print("  1. Enter title manually")
+    print("  2. Research a YouTube channel for shorts")
+    print("  q. Quit")
+
+    while True:
+        choice = input("\nSelect option (1/2/q): ").strip().lower()
+
+        if choice == 'q':
+            return None
+
+        if choice == '1':
+            title = input("\nEnter the title for your short: ").strip()
+            if title:
+                return title
+            print("Title cannot be empty.")
+
+        elif choice == '2':
+            channel_name = input("\nEnter YouTube channel name: ").strip()
+            if not channel_name:
+                print("Channel name cannot be empty.")
+                continue
+
+            try:
+                print()
+                df = research_channel(channel_name)
+                if df.empty:
+                    print("No shorts found. Try another channel.")
+                    continue
+
+                df_display = display_shorts(df)
+                title = select_short(df_display)
+                if title:
+                    return title
+            except Exception as e:
+                print(f"Error researching channel: {e}")
+                continue
+
+        else:
+            print("Invalid option. Please enter 1, 2, or q.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate YouTube Shorts from a title"
@@ -113,8 +161,8 @@ def main():
     parser.add_argument(
         "--title",
         type=str,
-        required=True,
-        help="The topic/title for the short"
+        default=None,
+        help="The topic/title for the short (optional - will prompt if not provided)"
     )
     parser.add_argument(
         "--output-dir",
@@ -145,10 +193,19 @@ def main():
 
     print(f"Found {len(available_videos)} video(s) in assets folder")
 
+    # Get title - either from args or interactive menu
+    if args.title:
+        title = args.title
+    else:
+        title = get_title_interactive()
+        if not title:
+            print("No title provided. Exiting.")
+            return
+
     # Run the pipeline
     try:
         video_path = run_pipeline(
-            title=args.title,
+            title=title,
             output_dir=args.output_dir,
         )
         print(f"\nSuccess! Watch your Short at: {video_path}")
