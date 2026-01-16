@@ -45,43 +45,58 @@ OUTPUT FORMAT (all fields required):
     {
       "timestamp": "0:00",
       "narration": "The actual words to speak for this scene",
-      "visual_suggestion": "Visual/audio cues"
+      "visual_suggestion": "Descriptive photo concept for this scene"
     }
   ]
 }
 
 IMPORTANT RULES:
 1. "script" field: Keep it SHORT (2-3 sentences max). Just a brief summary.
-2. "duration_estimate": Integer in seconds (aim for 180-300 seconds)
-3. "scenes": Array of 8-12 scene objects. THIS IS THE MOST IMPORTANT PART.
+2. "duration_estimate": Integer in seconds (aim for 120-180 seconds)
+3. "scenes": Array of 36 scene objects. THIS IS THE MOST IMPORTANT PART.
+
+WORD COUNT LIMIT: The total word count across all 36 narrations MUST be between 350-450 words maximum.
+This is approximately 10-12 words per scene. Keep narrations concise and punchy.
 
 SCENE RULES:
 - Each scene needs: timestamp, narration, visual_suggestion
 - "narration": ONLY spoken words. NO stage directions, NO [brackets], NO *asterisks*
-- "visual_suggestion": Put all music/visual cues here
-- Keep each narration 2-4 sentences
+- "visual_suggestion": Describe a STATIC PHOTO that represents this scene
+  * MANDATORY: ALWAYS start with "Anime style" at the beginning
+  * Focus on descriptive imagery suitable for photos, not video clips
+  * Examples: "Anime style photo of a sunset over mountains", "Anime style portrait of a character looking determined",
+    "Anime style landscape showing a destroyed city", "Anime style close-up of hands holding a weapon"
+  * Avoid motion-based descriptions like "flying", "running", "panning"
+  * Think of iconic stills that capture the moment's emotion and theme
+- Keep each narration 1-2 sentences (shorter for 36 scenes)
+- CRITICAL: Each narration should average 10-12 words to meet the 350-450 total word count limit
 
 Create engaging, fun content with:
 - Attention-grabbing hook in first scene
 - Good pacing and transitions
-- Entertaining narration style""",
+- Entertaining narration style
+- Photo suggestions that visually represent each scene's key concept""",
     output_type=ScriptOutput,
 )
 
 
-def generate_script(title: str, transcript: str) -> dict:
-    """Generate a structured video script from a title and transcript."""
-    # Debug: Log transcript info
+def generate_script(title: str, transcript: str = "") -> dict:
+    """Generate a structured video script from a title and optional transcript."""
+    # Debug: Log info
     print(f"  [DEBUG] Title: {title[:50]}...")
-    print(f"  [DEBUG] Transcript length: {len(transcript)} chars, ~{len(transcript.split())} words")
 
-    # Truncate transcript if too long (keep first 10000 chars)
-    max_chars = 10000
-    if len(transcript) > max_chars:
-        print(f"  [DEBUG] Truncating transcript from {len(transcript)} to {max_chars} chars")
-        transcript = transcript[:max_chars] + "..."
+    has_transcript = bool(transcript and transcript.strip())
 
-    prompt = f"""Create an engaging YouTube video script based on this content:
+    if has_transcript:
+        print(f"  [DEBUG] Transcript length: {len(transcript)} chars, ~{len(transcript.split())} words")
+
+        # Truncate transcript if too long (keep first 10000 chars)
+        max_chars = 10000
+        if len(transcript) > max_chars:
+            print(f"  [DEBUG] Truncating transcript from {len(transcript)} to {max_chars} chars")
+            transcript = transcript[:max_chars] + "..."
+
+        prompt = f"""Create an engaging YouTube video script based on this content:
 
 **Video Title:** {title}
 
@@ -89,6 +104,14 @@ def generate_script(title: str, transcript: str) -> dict:
 {transcript}
 
 Generate a script with scenes, timestamps, narration, and visual suggestions."""
+    else:
+        print(f"  [DEBUG] No transcript provided - generating script from title alone")
+
+        prompt = f"""Create an engaging YouTube video script based on this title:
+
+**Video Title:** {title}
+
+Since no transcript is available, use your creativity to develop an entertaining narrative based on the title theme. Generate a script with scenes, timestamps, narration, and visual suggestions."""
 
     result = Runner.run_sync(agent, prompt)
     return result.final_output.model_dump()

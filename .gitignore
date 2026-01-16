@@ -32,6 +32,15 @@ assets/videos/
 *.mp3
 *.wav
 
+# Generated images - DO NOT COMMIT
+assets/photos/
+assets/test_photos/
+
+# Test outputs
+output/test/
+output/test_*.mp4
+output/test_*.mp3
+
 # Cache
 video_assembler/cache/
 

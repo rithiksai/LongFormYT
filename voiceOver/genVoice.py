@@ -1,5 +1,5 @@
 from elevenlabs.client import ElevenLabs
-from elevenlabs import play, save
+from elevenlabs import play, save, VoiceSettings
 import os
 from dotenv import load_dotenv
 
@@ -9,8 +9,9 @@ api_key = os.environ.get("ELEVEN_LABS_API")
 client = ElevenLabs(api_key=api_key)
 
 # Default voice settings
-DEFAULT_VOICE_ID = "zYcjlYFOd3taleS0gkk3"
+DEFAULT_VOICE_ID = "V6zMK42bu1TVQBA7MwcF"
 DEFAULT_MODEL = "eleven_multilingual_v2"
+DEFAULT_VOICE_SPEED = 1.15  # 15% faster
 
 
 def generate_voiceover(text: str, output_path: str = None, voice_id: str = DEFAULT_VOICE_ID) -> bytes:
@@ -30,6 +31,7 @@ def generate_voiceover(text: str, output_path: str = None, voice_id: str = DEFAU
         voice_id=voice_id,
         model_id=DEFAULT_MODEL,
         output_format="mp3_44100_128",
+        voice_settings=VoiceSettings(speed=DEFAULT_VOICE_SPEED),
     )
 
     # Convert generator to bytes
