@@ -1,37 +1,52 @@
-"""Photo slideshow video assembler with Ken Burns effects."""
+"""Photo slideshow video assembler with Ken Burns panning effects."""
 
 import os
+import random
 from pathlib import Path
-from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, ColorClip, CompositeVideoClip
+
+from moviepy import (
+    ImageClip,
+    AudioFileClip,
+    concatenate_videoclips,
+    ColorClip,
+    CompositeVideoClip,
+)
 from moviepy.video.fx import FadeIn, FadeOut
+
+from .config import DEFAULT_CONFIG, ensure_directories
 
 # Video settings
 RESOLUTION = (1920, 1080)
 PHOTO_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.bmp']
 
-# Ken Burns effect settings (from moviepytest.py)
-BASE_SCALE = 1.35  # Overscale to prevent black backgrounds during pan/zoom
-ZOOM_INTENSITY = 0.20  # 20% zoom range
+# Ken Burns effect settings
+ZOOM_RATIO = 1.15  # How much larger than frame (15% zoom margin)
 
-# Available Ken Burns effects (rotate through these)
+# Available panning effects
 EFFECTS = [
-    "pan_right",
-    "zoom_out",
-    "zoom_in",
     "pan_left",
-    "static"
+    "pan_right",
+    "pan_up",
+    "pan_down",
+    "zoom_in",
+    "zoom_out",
 ]
 
 
-def get_photos(photos_dir: str) -> list[Path]:
-    """Get all photos from directory, sorted by filename.
-
-    Args:
-        photos_dir: Directory containing photos
-
-    Returns:
-        Sorted list of photo file paths
+def resize_cover(clip, target_w: int, target_h: int):
     """
+    Resize image to cover target dimensions (like CSS object-fit: cover).
+
+    The image is scaled so the shorter dimension fills the target,
+    and the longer dimension overflows (will be cropped by positioning).
+    """
+    img_w, img_h = clip.size
+    scale = max(target_w / img_w, target_h / img_h)
+    return clip.resized(scale)
+
+
+def get_photos(photos_dir: str) -> list[Path]:
+    """Get all photos from directory, sorted by filename."""
     photos_path = Path(photos_dir)
     if not photos_path.exists():
         return []
@@ -44,118 +59,94 @@ def get_photos(photos_dir: str) -> list[Path]:
     return sorted(photos)
 
 
-def apply_ken_burns(
-    clip: ImageClip,
-    effect: str,
-    duration: float
-) -> ImageClip:
-    """Apply Ken Burns effect with automatic scaling to prevent black backgrounds.
+def apply_ken_burns(clip: ImageClip, effect: str, duration: float) -> ImageClip:
+    """
+    Apply Ken Burns panning/zoom effect to an image clip.
 
     Args:
-        clip: Image clip to animate
-        effect: Effect type ('pan_right', 'zoom_in', 'zoom_out', 'pan_left', 'static')
-        duration: Duration in seconds
+        clip: The image clip to animate
+        effect: One of EFFECTS
+        duration: Duration of the clip in seconds
 
     Returns:
-        Animated clip with Ken Burns effect applied
+        Animated clip with Ken Burns effect
     """
-    if effect == "pan_right":
-        # STEP 1: Define desired pan distance (one-way distance)
-        pan_distance = 150  # pixels to pan in one direction
+    w, h = RESOLUTION
 
-        # STEP 2: Calculate required scale to avoid black borders
-        canvas_width, canvas_height = RESOLUTION
-        image_width, image_height = clip.size
+    # First apply cover-fit, then scale up for panning room
+    clip = resize_cover(clip, w, h)
+    clip = clip.resized(ZOOM_RATIO)  # Add margin for panning
+    img_w, img_h = clip.size
 
-        # Required width after scaling
-        required_width = canvas_width + (2 * pan_distance)
+    # Calculate movement range (how much we can pan)
+    x_margin = (img_w - w) // 2
+    y_margin = (img_h - h) // 2
 
-        # Scale factor must cover both width (for panning) and height (for aspect ratio)
-        scale_factor = max(
-            required_width / image_width,
-            canvas_height / image_height
-        )
+    # Center offset (to center the image in the frame)
+    center_x = -x_margin
+    center_y = -y_margin
 
-        # STEP 3: Apply scaling
-        scaled_clip = clip.resized(scale_factor).with_duration(duration)
+    if effect == "pan_left":
+        # Start from right, pan to left
+        def position(t):
+            progress = t / duration
+            x = x_margin - (2 * x_margin * progress)
+            return (x, center_y)
+        clip = clip.with_position(position)
 
-        # STEP 4: Calculate safe pan boundaries
-        scaled_width = image_width * scale_factor
-        max_pan = (scaled_width - canvas_width) / 2
+    elif effect == "pan_right":
+        # Start from left, pan to right
+        def position(t):
+            progress = t / duration
+            x = -x_margin + (2 * x_margin * progress)
+            return (x, center_y)
+        clip = clip.with_position(position)
 
-        # STEP 5: Pan from left to right
-        # Camera pans right = image moves left to reveal right side
-        # Use 90% of max_pan to avoid edge cases
-        safe_pan = max_pan * 0.9
-        positioned_clip = scaled_clip.with_position(
-            lambda t: (safe_pan - (2 * safe_pan * t / duration), "center")
-        )
+    elif effect == "pan_up":
+        # Start from bottom, pan to top
+        def position(t):
+            progress = t / duration
+            y = y_margin - (2 * y_margin * progress)
+            return (center_x, y)
+        clip = clip.with_position(position)
 
-        # Compose with explicit canvas size
-        return CompositeVideoClip([positioned_clip], size=RESOLUTION).with_duration(duration)
-
-    elif effect == "pan_left":
-        # STEP 1: Define desired pan distance (one-way distance)
-        pan_distance = 150  # pixels to pan in one direction
-
-        # STEP 2: Calculate required scale to avoid black borders
-        canvas_width, canvas_height = RESOLUTION
-        image_width, image_height = clip.size
-
-        # Required width after scaling
-        required_width = canvas_width + (2 * pan_distance)
-
-        # Scale factor must cover both width (for panning) and height (for aspect ratio)
-        scale_factor = max(
-            required_width / image_width,
-            canvas_height / image_height
-        )
-
-        # STEP 3: Apply scaling
-        scaled_clip = clip.resized(scale_factor).with_duration(duration)
-
-        # STEP 4: Calculate safe pan boundaries
-        scaled_width = image_width * scale_factor
-        max_pan = (scaled_width - canvas_width) / 2
-
-        # STEP 5: Pan from right to left
-        # Camera pans left = image moves right to reveal left side
-        # Use 90% of max_pan to avoid edge cases
-        safe_pan = max_pan * 0.9
-        positioned_clip = scaled_clip.with_position(
-            lambda t: (-safe_pan + (2 * safe_pan * t / duration), "center")
-        )
-
-        # Compose with explicit canvas size
-        return CompositeVideoClip([positioned_clip], size=RESOLUTION).with_duration(duration)
+    elif effect == "pan_down":
+        # Start from top, pan to bottom
+        def position(t):
+            progress = t / duration
+            y = -y_margin + (2 * y_margin * progress)
+            return (center_x, y)
+        clip = clip.with_position(position)
 
     elif effect == "zoom_in":
-        # Zoom in from BASE_SCALE to BASE_SCALE + ZOOM_INTENSITY
-        return (
-            clip
-            .with_duration(duration)
-            .resized(lambda t: BASE_SCALE + (BASE_SCALE * ZOOM_INTENSITY * (t / duration)))
-            .with_position("center")
-        )
+        # Start at cover-fit (1.0), zoom in to ZOOM_RATIO
+        # Reset to cover-fit size first
+        clip = clip.resized(1 / ZOOM_RATIO)
+
+        def zoom_in_scale(t):
+            progress = t / duration
+            return 1.0 + (ZOOM_RATIO - 1.0) * progress
+
+        clip = clip.resized(zoom_in_scale)
+        clip = clip.with_position('center')
 
     elif effect == "zoom_out":
-        # Zoom out from BASE_SCALE + ZOOM_INTENSITY to BASE_SCALE
-        # Ensures we never go below BASE_SCALE (always > 1.0)
-        return (
-            clip
-            .with_duration(duration)
-            .resized(lambda t: BASE_SCALE + (BASE_SCALE * ZOOM_INTENSITY * (1 - t / duration)))
-            .with_position("center")
-        )
+        # Start zoomed in at ZOOM_RATIO, zoom out to cover-fit (1.0)
+        # Reset to cover-fit size first
+        clip = clip.resized(1 / ZOOM_RATIO)
 
-    else:  # "static" or default
-        # No animation, just centered
-        return (
-            clip
-            .resized(BASE_SCALE)
-            .with_duration(duration)
-            .with_position("center")
-        )
+        def zoom_out_scale(t):
+            progress = t / duration
+            return ZOOM_RATIO - (ZOOM_RATIO - 1.0) * progress
+
+        clip = clip.resized(zoom_out_scale)
+        clip = clip.with_position('center')
+
+    else:
+        # Default: center position
+        clip = clip.with_position('center')
+
+    return clip
 
 
 def generate_photo_video(
@@ -164,53 +155,52 @@ def generate_photo_video(
     output_path: str,
     photos_dir: str = None,
 ) -> str:
-    """Generate video from photos with Ken Burns effects and voiceover.
+    """
+    Generate a video from photos with Ken Burns effects.
 
     Args:
-        script_data: Script JSON with 'scenes' array
-        voiceover_path: Path to voiceover MP3 file
+        script_data: Script JSON with scenes
+        voiceover_path: Path to voiceover audio file
         output_path: Where to save final video
-        photos_dir: Directory with photos (default: assets/photos)
+        photos_dir: Directory containing photos (default: assets/photos)
 
     Returns:
-        Path to generated video file
+        Path to the generated video file
     """
-    print("\nGenerating photo slideshow video with Ken Burns effects...")
+    print("Starting photo slideshow generation...")
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    ensure_directories()
 
     # Set photos directory
     if photos_dir is None:
         photos_dir = Path(__file__).parent.parent / "assets" / "photos"
 
-    # Load voiceover to get total duration
-    print(f"  Loading voiceover: {voiceover_path}")
+    # Load voiceover
+    print(f"Loading voiceover: {voiceover_path}")
     voiceover = AudioFileClip(voiceover_path)
     total_duration = voiceover.duration
-    print(f"  Duration: {total_duration:.1f}s")
+    print(f"Duration: {total_duration:.1f}s")
 
-    # Get scenes from script
+    # Get scenes
     scenes = script_data.get("scenes", [])
     if not scenes:
         raise ValueError("No scenes found in script data")
 
-    num_scenes = len(scenes)
-    scene_duration = total_duration / num_scenes
-
-    print(f"  Scenes: {num_scenes}")
-    print(f"  Duration per scene: {scene_duration:.2f}s")
+    scene_duration = total_duration / len(scenes)
+    total_scenes = len(scenes)
 
     # Get photos
-    photos = get_photos(str(photos_dir))
+    photos = get_photos(photos_dir)
     if not photos:
         raise FileNotFoundError(
             f"No photos found in {photos_dir}. "
             f"Please add image files ({', '.join(PHOTO_EXTENSIONS)})."
         )
 
-    print(f"  Photos available: {len(photos)}")
-    print()
+    print(f"\nFound {len(photos)} photos")
+    print(f"Processing {total_scenes} scenes ({scene_duration:.1f}s each)...")
 
     # Create clips for each scene
     video_clips = []
@@ -220,14 +210,15 @@ def generate_photo_video(
         photo_idx = i % len(photos)
         photo_path = photos[photo_idx]
 
-        # Rotate through Ken Burns effects
-        effect = EFFECTS[i % len(EFFECTS)]
+        # Random effect for this photo
+        effect = random.choice(EFFECTS)
 
-        print(f"  Scene {i + 1}/{num_scenes}: {photo_path.name} [{effect}] ({scene_duration:.2f}s)")
+        print(f"  Scene {i + 1}/{total_scenes}: {photo_path.name} [{effect}]")
 
         try:
             # Create image clip
             clip = ImageClip(str(photo_path))
+            clip = clip.with_duration(scene_duration)
 
             # Apply Ken Burns effect
             clip = apply_ken_burns(clip, effect, scene_duration)
@@ -235,35 +226,50 @@ def generate_photo_video(
             video_clips.append(clip)
 
         except Exception as e:
-            print(f"    Error creating clip: {e}")
-            # Create black fallback clip
+            print(f"    Error: {e}")
+            # Create black clip as fallback
             fallback = ColorClip(
                 size=RESOLUTION,
                 color=(0, 0, 0),
-                duration=scene_duration
+                duration=scene_duration,
             )
             video_clips.append(fallback)
 
     # Concatenate all clips
     print("\nConcatenating clips...")
 
-    # Ensure all clips have the same FPS
+    # Composite each clip onto a canvas of RESOLUTION size
+    # This preserves Ken Burns positioning while ensuring correct output dimensions
+    composited_clips = []
     for i, clip in enumerate(video_clips):
-        video_clips[i] = clip.with_fps(30)
+        if clip.size != RESOLUTION:
+            # Create a black background canvas
+            background = ColorClip(
+                size=RESOLUTION,
+                color=(0, 0, 0),
+                duration=clip.duration,
+            )
+            # Composite the positioned clip onto the background
+            composited = CompositeVideoClip([background, clip], size=RESOLUTION)
+            composited = composited.with_fps(30)
+            composited_clips.append(composited)
+        else:
+            composited_clips.append(clip.with_fps(30))
+    video_clips = composited_clips
 
     final_video = concatenate_videoclips(video_clips, method="compose")
 
-    # Add fade in/out effects
+    # Add fade in/out
     final_video = final_video.with_effects([
         FadeIn(0.5),
-        FadeOut(0.5)
+        FadeOut(0.5),
     ])
 
     # Attach voiceover
-    print("Attaching voiceover...")
+    print("Attaching audio...")
     final_video = final_video.with_audio(voiceover)
 
-    # Render final video
+    # Render
     print(f"Rendering to {output_path}...")
     final_video.write_videofile(
         output_path,
@@ -272,7 +278,7 @@ def generate_photo_video(
         audio_codec="aac",
         bitrate="5000k",
         audio_bitrate="192k",
-        threads=4
+        threads=4,
     )
 
     # Cleanup
@@ -286,30 +292,8 @@ def generate_photo_video(
 
 
 if __name__ == "__main__":
-    # Test with existing assets
-    import json
-
-    # Find a test script
-    script_dir = Path(__file__).parent.parent / "output" / "pipeline" / "scripts"
-    if script_dir.exists():
-        scripts = list(script_dir.glob("*.json"))
-        if scripts:
-            with open(scripts[0]) as f:
-                test_script = json.load(f)
-
-            voiceover_path = scripts[0].parent.parent / "voiceovers" / f"{scripts[0].stem}.mp3"
-
-            if voiceover_path.exists():
-                print("Testing photo_assembler...")
-                result = generate_photo_video(
-                    script_data=test_script,
-                    voiceover_path=str(voiceover_path),
-                    output_path="output/test_photo_assembler.mp4"
-                )
-                print(f"Test successful: {result}")
-            else:
-                print("No matching voiceover found")
-        else:
-            print("No test scripts found")
-    else:
-        print("Script directory not found")
+    # Test
+    photos_dir = Path(__file__).parent.parent / "assets" / "photos"
+    print(f"Photos directory: {photos_dir}")
+    photos = get_photos(photos_dir)
+    print(f"Found {len(photos)} photos: {[p.name for p in photos]}")

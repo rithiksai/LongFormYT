@@ -13,6 +13,8 @@ Example:
         --output output/final_video.mp4
 """
 
+
+
 import sys
 import os
 import argparse

@@ -16,6 +16,7 @@ from datetime import datetime
 
 from gen_script import generate_script
 from gen_voice import generate_voiceover
+from gen_images import generate_images_for_short
 from video_assembler import assemble_video, get_available_videos, ASSETS_DIR
 from research_shorts import research_channel, display_shorts, select_short
 
@@ -28,13 +29,14 @@ def slugify(text: str) -> str:
     return text[:30]
 
 
-def run_pipeline(title: str, output_dir: str = "output") -> str:
+def run_pipeline(title: str, output_dir: str = "output", mode: str = "video") -> str:
     """
     Run the complete YouTube Shorts generation pipeline.
 
     Args:
         title: The topic/title for the short
         output_dir: Directory for output files
+        mode: "video" for video clips, "images" for AI-generated images
 
     Returns:
         Path to the generated video
@@ -43,6 +45,7 @@ def run_pipeline(title: str, output_dir: str = "output") -> str:
     print("  YOUTUBE SHORTS PIPELINE")
     print("=" * 50)
     print(f"\nTitle: {title}")
+    print(f"Mode: {mode}")
 
     # Create output directories
     os.makedirs(output_dir, exist_ok=True)
@@ -52,14 +55,18 @@ def run_pipeline(title: str, output_dir: str = "output") -> str:
 
     # ========== STEP 1: Generate Script ==========
     print("\n" + "-" * 50)
-    print("STEP 1: Generating Script")
+    print(f"STEP 1: Generating Script")
     print("-" * 50)
 
+    include_visuals = (mode == "images")
+
     try:
-        script_data = generate_script(title)
+        script_data = generate_script(title, include_visuals=include_visuals)
         print(f"  Hook: {script_data['hook'][:50]}...")
         print(f"  Duration estimate: {script_data['duration_estimate']}s")
         print(f"  Word count: {len(script_data['narration'].split())} words")
+        if include_visuals:
+            print(f"  Visual suggestions: {len(script_data.get('visual_suggestions', []))}")
     except Exception as e:
         print(f"  Script generation failed: {e}")
         raise
@@ -79,6 +86,30 @@ def run_pipeline(title: str, output_dir: str = "output") -> str:
         print(f"  Voiceover generation failed: {e}")
         raise
 
+    # ========== STEP 2.5: Generate Images (if image mode) ==========
+    images_dir = None
+    if mode == "images":
+        print("\n" + "-" * 50)
+        print("STEP 2.5: Generating AI Images")
+        print("-" * 50)
+
+        images_dir = f"{output_dir}/{slug}_{timestamp}_images"
+        visual_suggestions = script_data.get("visual_suggestions", [])
+
+        if not visual_suggestions:
+            print("  ERROR: No visual suggestions in script data")
+            raise ValueError("No visual suggestions generated for image mode")
+
+        try:
+            image_paths = generate_images_for_short(
+                visual_suggestions,
+                output_dir=images_dir,
+            )
+            print(f"  Generated {len(image_paths)} images")
+        except Exception as e:
+            print(f"  Image generation failed: {e}")
+            raise
+
     # ========== STEP 3: Assemble Video ==========
     print("\n" + "-" * 50)
     print("STEP 3: Assembling Video")
@@ -87,7 +118,12 @@ def run_pipeline(title: str, output_dir: str = "output") -> str:
     video_path = f"{output_dir}/{slug}_{timestamp}.mp4"
 
     try:
-        assemble_video(voiceover_path, video_path)
+        assemble_video(
+            voiceover_path,
+            video_path,
+            mode=mode,
+            images_dir=images_dir,
+        )
         file_size = os.path.getsize(video_path) / (1024 * 1024)
         print(f"  File size: {file_size:.2f} MB")
     except Exception as e:
@@ -99,12 +135,32 @@ def run_pipeline(title: str, output_dir: str = "output") -> str:
     print("  PIPELINE COMPLETE!")
     print("=" * 50)
     print(f"\nTitle: {title}")
+    print(f"Mode: {mode}")
     print(f"\nGenerated files:")
     print(f"  1. Voiceover: {voiceover_path}")
-    print(f"  2. Video:     {video_path}")
+    if images_dir:
+        print(f"  2. Images:    {images_dir}/")
+        print(f"  3. Video:     {video_path}")
+    else:
+        print(f"  2. Video:     {video_path}")
     print("\n" + "=" * 50)
 
     return video_path
+
+
+def get_mode_interactive() -> str:
+    """Get visual mode through interactive menu."""
+    print("\nSelect visual mode:")
+    print("  1. Video clips (random cuts from assets/videos)")
+    print("  2. AI-generated images (Stability.AI)")
+
+    while True:
+        choice = input("\nSelect option (1/2): ").strip()
+        if choice == '1':
+            return "video"
+        elif choice == '2':
+            return "images"
+        print("Invalid option. Please enter 1 or 2.")
 
 
 def get_title_interactive():
@@ -170,11 +226,23 @@ def main():
         default="output",
         help="Output directory (default: output)"
     )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["video", "images"],
+        default=None,
+        help="Visual mode: 'video' for video clips, 'images' for AI-generated images (default: prompt)"
+    )
 
     args = parser.parse_args()
 
     # Check for required environment variables
     required_vars = ["CLAUDE_API_KEY", "ELEVEN_LABS_API"]
+
+    # Add STABILITY_API_KEY if image mode is specified via CLI
+    if args.mode == "images":
+        required_vars.append("STABILITY_API_KEY")
+
     missing_vars = [var for var in required_vars if not os.environ.get(var)]
 
     if missing_vars:
@@ -183,15 +251,6 @@ def main():
             print(f"  - {var}")
         print("\nPlease set these in your .env file or environment.")
         return
-
-    # Check for videos in assets folder
-    available_videos = get_available_videos()
-    if not available_videos:
-        print(f"ERROR: No videos found in {ASSETS_DIR}")
-        print("Please add video files to use as background clips.")
-        return
-
-    print(f"Found {len(available_videos)} video(s) in assets folder")
 
     # Get title - either from args or interactive menu
     if args.title:
@@ -202,11 +261,36 @@ def main():
             print("No title provided. Exiting.")
             return
 
+    # Get mode - either from args or interactive menu
+    if args.mode:
+        mode = args.mode
+    else:
+        mode = get_mode_interactive()
+
+    # Check for STABILITY_API_KEY if image mode was selected interactively
+    if mode == "images" and not os.environ.get("STABILITY_API_KEY"):
+        print("ERROR: Missing STABILITY_API_KEY environment variable")
+        print("This is required for AI image generation mode.")
+        print("\nPlease set it in your .env file or environment.")
+        return
+
+    # Check for videos in assets folder (only needed for video mode)
+    if mode == "video":
+        available_videos = get_available_videos()
+        if not available_videos:
+            print(f"ERROR: No videos found in {ASSETS_DIR}")
+            print("Please add video files to use as background clips.")
+            return
+        print(f"Found {len(available_videos)} video(s) in assets folder")
+    else:
+        print("AI image mode selected - images will be generated via Stability.AI")
+
     # Run the pipeline
     try:
         video_path = run_pipeline(
             title=title,
             output_dir=args.output_dir,
+            mode=mode,
         )
         print(f"\nSuccess! Watch your Short at: {video_path}")
 

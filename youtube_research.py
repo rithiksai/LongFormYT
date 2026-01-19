@@ -28,7 +28,7 @@ def convert_to_seconds(time_str):
     if match:
         hrs = int(match.group(1) or 0)
         minutes = int(match.group(2) or 0)  # If minutes are not present, default to 0
-        seconds = int(match.group(3))
+        seconds = int(match.group(3) or 0)
         total_seconds = hrs * 3600 + minutes * 60 + seconds
         return total_seconds
     else:

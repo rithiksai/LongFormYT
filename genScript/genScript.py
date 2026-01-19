@@ -1,5 +1,7 @@
 import os
-from pydantic import BaseModel
+import json
+import re
+from pydantic import BaseModel, ValidationError
 from agents import Agent, Runner, ModelSettings, set_tracing_export_api_key
 from agents.extensions.models.litellm_model import LitellmModel
 from dotenv import load_dotenv
@@ -28,12 +30,54 @@ class ScriptOutput(BaseModel):
     scenes: list[Scene]
 
 
+def parse_script_output(raw_output: str) -> dict:
+    """
+    Parse the model's output, handling the $PARAMETER_NAME wrapper issue.
+
+    The LitellmModel sometimes wraps output in {"$PARAMETER_NAME": {...}}
+    This function extracts the actual content.
+    """
+    # First, try to extract JSON from the raw output
+    # Handle case where output might have markdown code blocks
+    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_output)
+    if json_match:
+        raw_output = json_match.group(1)
+
+    # Try to parse as JSON
+    try:
+        parsed = json.loads(raw_output.strip())
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON: {e}")
+
+    # Check if it's wrapped in $PARAMETER_NAME or similar template key
+    if isinstance(parsed, dict) and len(parsed) == 1:
+        key = list(parsed.keys())[0]
+        # If the key looks like a template placeholder and the value is a dict
+        if key.startswith('$') or key == 'PARAMETER_NAME':
+            inner = parsed[key]
+            if isinstance(inner, dict) and 'script' in inner and 'scenes' in inner:
+                parsed = inner
+
+    # Validate against ScriptOutput model
+    try:
+        validated = ScriptOutput(**parsed)
+        return validated.model_dump()
+    except ValidationError as e:
+        raise ValueError(f"Invalid script output structure: {e}")
+
+
 # Agent with instructions for anime/entertainment script generation
 agent = Agent(
     name="ScriptWriter",
     model=LitellmModel(model="anthropic/claude-sonnet-4-5", api_key=claude_api_key),
     model_settings=ModelSettings(include_usage=True),
     instructions="""You are an expert anime/entertainment YouTube script writer.
+
+CRITICAL OUTPUT FORMAT:
+- Output ONLY the raw JSON object with script, duration_estimate, and scenes
+- Do NOT wrap the output in any additional structure
+- Do NOT use template placeholders like $PARAMETER_NAME
+- The output must start with { and end with } - nothing else
 
 CRITICAL: You MUST output valid JSON with ALL THREE fields. Generate the "scenes" array FIRST as it is the most important.
 
@@ -76,7 +120,8 @@ Create engaging, fun content with:
 - Good pacing and transitions
 - Entertaining narration style
 - Photo suggestions that visually represent each scene's key concept""",
-    output_type=ScriptOutput,
+    # Note: output_type removed to handle JSON parsing manually
+    # The LitellmModel sometimes wraps output in {"$PARAMETER_NAME": {...}}
 )
 
 
@@ -114,7 +159,10 @@ Generate a script with scenes, timestamps, narration, and visual suggestions."""
 Since no transcript is available, use your creativity to develop an entertaining narrative based on the title theme. Generate a script with scenes, timestamps, narration, and visual suggestions."""
 
     result = Runner.run_sync(agent, prompt)
-    return result.final_output.model_dump()
+
+    # Parse the raw output, handling the $PARAMETER_NAME wrapper issue
+    raw_output = result.final_output
+    return parse_script_output(raw_output)
 
 
 if __name__ == "__main__":

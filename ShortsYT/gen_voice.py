@@ -2,6 +2,7 @@
 
 import os
 from elevenlabs.client import ElevenLabs
+from elevenlabs import VoiceSettings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -35,6 +36,11 @@ def generate_voiceover(narration: str, output_path: str) -> str:
         voice_id=DEFAULT_VOICE_ID,
         model_id=DEFAULT_MODEL,
         output_format="mp3_44100_128",
+        voice_settings=VoiceSettings(
+            stability=0.5,
+            similarity_boost=0.75,
+            speed=1.2,  # 20% faster
+        ),
     )
 
     # Convert generator to bytes and save
