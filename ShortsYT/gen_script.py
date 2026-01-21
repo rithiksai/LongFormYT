@@ -39,8 +39,27 @@ OUTPUT FORMAT (all fields required):
   "duration_estimate": 30
 }
 
+HOOK STRATEGY - START WITH THE OUTCOME (CRITICAL):
+The first 1.5 seconds determine if viewers keep watching. Lead with the RESULT, not the story.
+
+WRONG (context/backstory first - NEVER do this):
+- "I started a faceless YouTube channel and…"
+- "So I decided to try this new thing…"
+- "Let me tell you about what happened when…"
+
+RIGHT (outcome/result first - ALWAYS do this):
+- "This faceless Short made $47 while I was asleep."
+- "$2,000 in 30 days from a channel with zero subscribers."
+- "One video. 2 million views. Here's the secret."
+
+Hook Rules:
+- NO backstory in the hook
+- NO buildup or context setting
+- Lead with the shocking result, number, or outcome
+- Make viewers NEED to know how
+
 RULES FOR YOUTUBE SHORTS:
-1. HOOK IS EVERYTHING - First 3 seconds must grab attention immediately
+1. HOOK IS EVERYTHING - First 1.5 seconds must grab attention with an OUTCOME
 2. Keep total narration to ~25 seconds when spoken aloud (MAXIMUM 80 words - this is strict)
 3. Fast-paced, punchy sentences - no filler words
 4. End with a call-to-action or thought-provoking question
@@ -48,8 +67,8 @@ RULES FOR YOUTUBE SHORTS:
 6. Make it entertaining, surprising, or controversial
 
 STRUCTURE:
-- Hook (0-3 sec): Shocking statement, question, or bold claim
-- Body (3-25 sec): Deliver the main content quickly
+- Hook (0-1.5 sec): OUTCOME FIRST - Lead with the result, number, or payoff. No backstory.
+- Body (1.5-25 sec): Deliver the main content quickly
 - Ending (25-30 sec): Punchline, CTA, or cliffhanger
 
 Keep it SHORT and PUNCHY. Every word must earn its place.""",
@@ -75,8 +94,27 @@ OUTPUT FORMAT (all fields required):
   ]
 }
 
+HOOK STRATEGY - START WITH THE OUTCOME (CRITICAL):
+The first 1.5 seconds determine if viewers keep watching. Lead with the RESULT, not the story.
+
+WRONG (context/backstory first - NEVER do this):
+- "I started a faceless YouTube channel and…"
+- "So I decided to try this new thing…"
+- "Let me tell you about what happened when…"
+
+RIGHT (outcome/result first - ALWAYS do this):
+- "This faceless Short made $47 while I was asleep."
+- "$2,000 in 30 days from a channel with zero subscribers."
+- "One video. 2 million views. Here's the secret."
+
+Hook Rules:
+- NO backstory in the hook
+- NO buildup or context setting
+- Lead with the shocking result, number, or outcome
+- Make viewers NEED to know how
+
 RULES FOR YOUTUBE SHORTS:
-1. HOOK IS EVERYTHING - First 3 seconds must grab attention immediately
+1. HOOK IS EVERYTHING - First 1.5 seconds must grab attention with an OUTCOME
 2. Keep total narration to ~25 seconds when spoken aloud (MAXIMUM 80 words - this is strict)
 3. Fast-paced, punchy sentences - no filler words
 4. End with a call-to-action or thought-provoking question
@@ -84,8 +122,8 @@ RULES FOR YOUTUBE SHORTS:
 6. Make it entertaining, surprising, or controversial
 
 STRUCTURE:
-- Hook (0-3 sec): Shocking statement, question, or bold claim
-- Body (3-25 sec): Deliver the main content quickly
+- Hook (0-1.5 sec): OUTCOME FIRST - Lead with the result, number, or payoff. No backstory.
+- Body (1.5-25 sec): Deliver the main content quickly
 - Ending (25-30 sec): Punchline, CTA, or cliffhanger
 
 VISUAL SUGGESTIONS RULES:
@@ -127,7 +165,7 @@ def generate_script(title: str, include_visuals: bool = False) -> dict:
 
 **Title:** {title}
 
-Generate a ~30 second script that hooks viewers in the first 3 seconds and keeps them watching until the end."""
+Generate a ~30 second script that hooks viewers in the first 1.5 seconds with an OUTCOME (not backstory) and keeps them watching until the end."""
 
     selected_agent = agent_with_visuals if include_visuals else agent
     result = Runner.run_sync(selected_agent, prompt)
